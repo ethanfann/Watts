@@ -3,6 +3,12 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/reset"
+        android:title="reset"
+        app:showAsAction="always"
+        android:orderInCategory="0"/>
+
+    <item
         android:id="@+id/forgetDevice"
         android:title="Forget Device"
         app:showAsAction="collapseActionView"

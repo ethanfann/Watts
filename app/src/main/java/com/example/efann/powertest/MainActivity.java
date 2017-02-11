@@ -14,6 +14,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 
 import com.dsi.ant.plugins.antplus.pcc.AntPlusBikePowerPcc;
@@ -24,6 +25,10 @@ import com.dsi.ant.plugins.antplus.pcc.defines.RequestStatus;
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc;
 import com.dsi.ant.plugins.antplus.pccbase.AntPlusCommonPcc;
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle;
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
+
 
 import org.w3c.dom.Text;
 
@@ -39,16 +44,21 @@ public class MainActivity extends AppCompatActivity {
     AntPlusBikePowerPcc pwrPcc = null;
     PccReleaseHandle<AntPlusBikePowerPcc> releaseHandle;
 
-    // Sensor Details Card Section
     TextView textView_sensorName;
     TextView textView_sensorId;
+    TextView textView_currentPower;
+    TextView textView_maxPower;
+    TextView textView_avgPower;
+
     Button button_connectToSensor;
 
+    GraphView graph;
+
+    ToggleButton toggleButton_toggleRecording;
+    boolean isRecording = false;
+
     ArrayList<BigInteger> powerPoints = new ArrayList<>();
-
-    private boolean isRecording = false;
-    private BigInteger maxWatts = BigInteger.ZERO;
-
+    LineGraphSeries<DataPoint> series;
 
     AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikePowerPcc> mResultReceiver = new AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikePowerPcc>() {
         @Override
@@ -56,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
             switch (resultCode) {
                 case SUCCESS:
                     pwrPcc = result;
+                    subscribeToEvents();
                     textView_sensorName.setText(result.getDeviceName());
                     textView_sensorId.setText(String.valueOf(result.getAntDeviceNumber()));
                     break;
@@ -116,16 +127,12 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+
                             if(isRecording){
-
                                 powerPoints.add(power.toBigInteger());
-
-                                BigInteger sum =  BigInteger.ZERO;
-                                for(BigInteger power : powerPoints){
-                                    sum = sum.add(power);
-                                }
-                                BigInteger average = sum.divide(BigInteger.valueOf(powerPoints.size()));
+                                textView_currentPower.setText(power.intValue() + " W");
                             }
+
                         }
                     });
                 }
@@ -162,6 +169,11 @@ public class MainActivity extends AppCompatActivity {
                     releaseHandle.close();
                 }
                 return true;
+            case R.id.reset:
+                if(graph != null){
+                    graph.removeAllSeries();
+                }
+                return true;
             default:
                 return true;
         }
@@ -179,15 +191,33 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
         textView_sensorName = (TextView)findViewById(R.id.powerMeterName);
         textView_sensorId = (TextView)findViewById(R.id.powerMeterId);
         button_connectToSensor = (Button)findViewById(R.id.sensorConnect);
+        toggleButton_toggleRecording = (ToggleButton)findViewById(R.id.toggleButton) ;
+        textView_currentPower = (TextView)findViewById(R.id.powerLabel);
+        textView_avgPower = (TextView)findViewById(R.id.avgPower);
+        textView_maxPower = (TextView)findViewById(R.id.maxPower);
+
 
         button_connectToSensor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 resetPcc();
+            }
+        });
+
+        toggleButton_toggleRecording.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(isRecording){
+                    textView_currentPower.setText("");
+                    chartTest();
+                    textView_maxPower.setText("Max Power = " + getMaxPower().toString() + " W");
+                    textView_avgPower.setText("Avg Power = " + getAvgPower().toString() + " W");
+
+                }
+                isRecording = !isRecording;
             }
         });
 
@@ -225,34 +255,63 @@ public class MainActivity extends AppCompatActivity {
         releaseHandle = AntPlusBikePowerPcc.requestAccess(this, this, mResultReceiver, mDeviceStateChangeReceiver);
     }
 
-    private void startRecording() {
-        powerPoints.clear();
-
-        new CountDownTimer(5000, 1000) {
-            public void onTick(long millisUntilFinished) {
-//               textview_main.setText(String.valueOf(millisUntilFinished/1000));
+    private BigInteger getMaxPower(){
+        BigInteger maxPower = BigInteger.ZERO;
+        for(BigInteger power: powerPoints){
+            if(power.compareTo(maxPower) == 1) {
+                maxPower = power;
             }
-
-            public void onFinish() {
-               isRecording = true;
-            }
-        }.start();
-
-        // Capture value for Peak Watts after 10 seconds of recording
-        final Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                maxWatts = powerPoints.get(0);
-                for(BigInteger power : powerPoints){
-                    if(power.compareTo(maxWatts) == 1) {
-                        maxWatts = power;
-                    }
-                }
-                Toast.makeText(MainActivity.this, "Max Watts of " + maxWatts.toString(), Toast.LENGTH_SHORT).show();
-
-            }
-        }, 10000);
+        }
+        return maxPower;
     }
+    private BigInteger getAvgPower(){
+        BigInteger sum = BigInteger.ZERO;
+        for(BigInteger power: powerPoints){
+            sum = sum.add(power);
+        }
+        return sum.divide(BigInteger.valueOf(powerPoints.size()));
+    }
+
+    private void chartTest() {
+        graph = (GraphView)findViewById(R.id.graph);
+
+        LineGraphSeries<DataPoint> series = new LineGraphSeries<DataPoint>();
+        int i = 0;
+        for(BigInteger power: powerPoints){
+            series.appendData(new DataPoint(i, power.intValue()), true, 1000);
+            i++;
+        }
+        graph.addSeries(series);
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        releaseHandle.close();
+        super.onDestroy();
+    }
+
+//    private void startRecording() {
+//
+//        powerPoints.clear();
+//
+//        new CountDownTimer(5000, 1000) {
+//            public void onTick(long millisUntilFinished) {
+////               textview_main.setText(String.valueOf(millisUntilFinished/1000));
+//            }
+//
+//            public void onFinish() {
+//            }
+//        }.start();
+//
+//        // Capture value for Peak Watts after 10 seconds of recording
+//        final Handler handler = new Handler();
+//        handler.postDelayed(new Runnable() {
+//            @Override
+//            public void run() {
+//
+//            }
+//        }, 10000);
+//    }
 
 }
