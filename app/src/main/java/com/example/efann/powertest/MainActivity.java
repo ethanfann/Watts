@@ -173,6 +173,8 @@ public class MainActivity extends AppCompatActivity {
                 if(graph != null){
                     graph.removeAllSeries();
                 }
+                textView_avgPower.setText("");
+                textView_maxPower.setText("");
                 return true;
             default:
                 return true;
