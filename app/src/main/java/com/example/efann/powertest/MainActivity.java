@@ -2,9 +2,11 @@ package com.example.efann.powertest;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.provider.ContactsContract;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -25,40 +27,37 @@ import com.dsi.ant.plugins.antplus.pcc.defines.RequestStatus;
 import com.dsi.ant.plugins.antplus.pccbase.AntPluginPcc;
 import com.dsi.ant.plugins.antplus.pccbase.AntPlusCommonPcc;
 import com.dsi.ant.plugins.antplus.pccbase.PccReleaseHandle;
-import com.jjoe64.graphview.GraphView;
-import com.jjoe64.graphview.series.DataPoint;
-import com.jjoe64.graphview.series.LineGraphSeries;
-
-
-import org.w3c.dom.Text;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
+import com.github.mikephil.charting.utils.ColorTemplate;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.concurrent.CountDownLatch;
+
 
 public class MainActivity extends AppCompatActivity {
 
-
+    //ANt+ Power Profile
     AntPlusBikePowerPcc pwrPcc = null;
     PccReleaseHandle<AntPlusBikePowerPcc> releaseHandle;
 
+
     TextView textView_sensorName;
     TextView textView_sensorId;
-    TextView textView_currentPower;
-    TextView textView_maxPower;
-    TextView textView_avgPower;
-
     Button button_connectToSensor;
 
-    GraphView graph;
-
+    TextView textView_currentPower;
     ToggleButton toggleButton_toggleRecording;
-    boolean isRecording = false;
 
-    ArrayList<BigInteger> powerPoints = new ArrayList<>();
-    LineGraphSeries<DataPoint> series;
+    ArrayList<Integer> powerPoints = new ArrayList<>();
+    private LineChart chart;
+
+    boolean isRecording = false;
 
     AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikePowerPcc> mResultReceiver = new AntPluginPcc.IPluginAccessResultReceiver<AntPlusBikePowerPcc>() {
         @Override
@@ -129,10 +128,11 @@ public class MainActivity extends AppCompatActivity {
                         public void run() {
 
                             if(isRecording){
-                                powerPoints.add(power.toBigInteger());
-                                textView_currentPower.setText(power.intValue() + " W");
-                            }
+                                powerPoints.add(power.intValue());
+                                textView_currentPower.setText(power + " W");
 
+                                addEntry(power.intValue());
+                            }
                         }
                     });
                 }
@@ -168,17 +168,16 @@ public class MainActivity extends AppCompatActivity {
                 if (releaseHandle != null) {
                     releaseHandle.close();
                 }
-                return true;
+                break;
             case R.id.reset:
-                if(graph != null){
-                    graph.removeAllSeries();
-                }
-                textView_avgPower.setText("");
-                textView_maxPower.setText("");
-                return true;
+                chart.clearValues();
+                powerPoints.clear();
+                textView_currentPower.setText("");
+                break;
             default:
-                return true;
+                break;
         }
+        return true;
     }
 
     @Override
@@ -196,10 +195,14 @@ public class MainActivity extends AppCompatActivity {
         textView_sensorName = (TextView)findViewById(R.id.powerMeterName);
         textView_sensorId = (TextView)findViewById(R.id.powerMeterId);
         button_connectToSensor = (Button)findViewById(R.id.sensorConnect);
+
         toggleButton_toggleRecording = (ToggleButton)findViewById(R.id.toggleButton) ;
         textView_currentPower = (TextView)findViewById(R.id.powerLabel);
-        textView_avgPower = (TextView)findViewById(R.id.avgPower);
-        textView_maxPower = (TextView)findViewById(R.id.maxPower);
+
+        LineData data = new LineData();
+        chart = (LineChart)findViewById(R.id.lineChart);
+        chart.setData(data);
+        chart.setDescription(null);
 
 
         button_connectToSensor.setOnClickListener(new View.OnClickListener() {
@@ -212,13 +215,6 @@ public class MainActivity extends AppCompatActivity {
         toggleButton_toggleRecording.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(isRecording){
-                    textView_currentPower.setText("");
-                    chartTest();
-                    textView_maxPower.setText("Max Power = " + getMaxPower().toString() + " W");
-                    textView_avgPower.setText("Avg Power = " + getAvgPower().toString() + " W");
-
-                }
                 isRecording = !isRecording;
             }
         });
@@ -257,40 +253,48 @@ public class MainActivity extends AppCompatActivity {
         releaseHandle = AntPlusBikePowerPcc.requestAccess(this, this, mResultReceiver, mDeviceStateChangeReceiver);
     }
 
-    private BigInteger getMaxPower(){
-        BigInteger maxPower = BigInteger.ZERO;
-        for(BigInteger power: powerPoints){
-            if(power.compareTo(maxPower) == 1) {
-                maxPower = power;
-            }
-        }
-        return maxPower;
-    }
-    private BigInteger getAvgPower(){
-        BigInteger sum = BigInteger.ZERO;
-        for(BigInteger power: powerPoints){
-            sum = sum.add(power);
-        }
-        return sum.divide(BigInteger.valueOf(powerPoints.size()));
-    }
-
-    private void chartTest() {
-        graph = (GraphView)findViewById(R.id.graph);
-
-        LineGraphSeries<DataPoint> series = new LineGraphSeries<DataPoint>();
-        int i = 0;
-        for(BigInteger power: powerPoints){
-            series.appendData(new DataPoint(i, power.intValue()), true, 1000);
-            i++;
-        }
-        graph.addSeries(series);
-    }
-
     @Override
     protected void onDestroy()
     {
         releaseHandle.close();
         super.onDestroy();
+    }
+
+    private void addEntry(Integer power){
+        LineData data = chart.getData();
+
+        if (data != null) {
+
+            ILineDataSet set = data.getDataSetByIndex(0);
+
+            if (set == null) {
+                set = createSet();
+                data.addDataSet(set);
+            }
+
+            data.addEntry(new Entry(set.getEntryCount(), power), 0);
+            data.notifyDataChanged();
+
+            chart.notifyDataSetChanged();
+            chart.setVisibleXRangeMaximum(120);
+            chart.moveViewToX(data.getEntryCount());
+        }
+    }
+
+    private LineDataSet createSet() {
+        LineDataSet set = new LineDataSet(null, "Power");
+        set.setAxisDependency(YAxis.AxisDependency.LEFT);
+        set.setColor(ColorTemplate.getHoloBlue());
+        set.setCircleColor(Color.WHITE);
+        set.setLineWidth(2f);
+        set.setCircleRadius(4f);
+        set.setFillAlpha(65);
+        set.setFillColor(ColorTemplate.getHoloBlue());
+        set.setHighLightColor(Color.rgb(244, 117, 117));
+        set.setValueTextColor(Color.WHITE);
+        set.setValueTextSize(9f);
+        set.setDrawValues(false);
+        return set;
     }
 
 //    private void startRecording() {

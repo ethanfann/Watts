@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/PowerTest.iml" filepath="$PROJECT_DIR$/PowerTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Watts.iml" filepath="$PROJECT_DIR$/Watts.iml" />
       <module fileurl="file://$PROJECT_DIR$/antpluginlib_3-5-0/antpluginlib_3-5-0.iml" filepath="$PROJECT_DIR$/antpluginlib_3-5-0/antpluginlib_3-5-0.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
