@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.provider.ContactsContract;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -35,9 +36,12 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
+import org.w3c.dom.Text;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.Random;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -52,7 +56,8 @@ public class MainActivity extends AppCompatActivity {
     Button button_connectToSensor;
 
     TextView textView_currentPower;
-    ToggleButton toggleButton_toggleRecording;
+    TextView textView_avgPower;
+    TextView textView_maxPower;
 
     ArrayList<Integer> powerPoints = new ArrayList<>();
     private LineChart chart;
@@ -130,7 +135,8 @@ public class MainActivity extends AppCompatActivity {
                             if(isRecording){
                                 powerPoints.add(power.intValue());
                                 textView_currentPower.setText(power + " W");
-
+                                textView_avgPower.setText(getAvgPower() + " W");
+                                textView_maxPower.setText(getMaxPower() + " W");
                                 addEntry(power.intValue());
                             }
                         }
@@ -172,7 +178,9 @@ public class MainActivity extends AppCompatActivity {
             case R.id.reset:
                 chart.clearValues();
                 powerPoints.clear();
-                textView_currentPower.setText("");
+                textView_currentPower.setText("-");
+                textView_avgPower.setText("-");
+                textView_maxPower.setText("-");
                 break;
             default:
                 break;
@@ -196,8 +204,11 @@ public class MainActivity extends AppCompatActivity {
         textView_sensorId = (TextView)findViewById(R.id.powerMeterId);
         button_connectToSensor = (Button)findViewById(R.id.sensorConnect);
 
-        toggleButton_toggleRecording = (ToggleButton)findViewById(R.id.toggleButton) ;
         textView_currentPower = (TextView)findViewById(R.id.powerLabel);
+        textView_avgPower = (TextView)findViewById(R.id.textView_avg);
+        textView_maxPower = (TextView)findViewById(R.id.textView_max);
+
+
 
         LineData data = new LineData();
         chart = (LineChart)findViewById(R.id.lineChart);
@@ -205,17 +216,18 @@ public class MainActivity extends AppCompatActivity {
         chart.setDescription(null);
 
 
+        FloatingActionButton fab = (FloatingActionButton)findViewById(R.id.floatingActionButton);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isRecording = !isRecording;
+            }
+        });
+
         button_connectToSensor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 resetPcc();
-            }
-        });
-
-        toggleButton_toggleRecording.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                isRecording = !isRecording;
             }
         });
 
@@ -260,6 +272,38 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    private Integer getMaxPower(){
+        Integer maxPower = 0;
+
+        if(!powerPoints.isEmpty()){
+            for(Integer power: powerPoints){
+                if(maxPower < power){
+                    maxPower = power;
+                }
+            }
+        }
+
+        return maxPower;
+    }
+
+
+    private Integer getAvgPower(){
+        Integer avgPower = 0;
+
+        if(!powerPoints.isEmpty()){
+
+            Integer sum = 0;
+            for(Integer power: powerPoints){
+                sum+=power;
+            }
+
+            avgPower = sum / powerPoints.size();
+        }
+
+        return avgPower;
+    }
+
+
     private void addEntry(Integer power){
         LineData data = chart.getData();
 
@@ -295,6 +339,14 @@ public class MainActivity extends AppCompatActivity {
         set.setValueTextSize(9f);
         set.setDrawValues(false);
         return set;
+    }
+
+    private Integer generateRandomPower(){
+        Random rand = new Random();
+
+        int n = rand.nextInt(200) + 50;
+
+        return n;
     }
 
 //    private void startRecording() {
