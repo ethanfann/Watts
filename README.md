@@ -1,3 +1,3 @@
 # Watts
 
-My power meter is currently broken. RIP
+Use an internal or external ANT+ adapter to connect to ANT+ capable bicycle power meters. Displays power output information along with a graph that updates in real time
